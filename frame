@@ -139,3 +139,247 @@ PIECES = {'S': S_SHAPE_TEMPLATE, #store possible transform of each shapes
      'I': I_SHAPE_TEMPLATE,
      'O': O_SHAPE_TEMPLATE,
      'T': T_SHAPE_TEMPLATE}
+
+def main(): #main() function is also responsible for creating some other global constants and displays the initial screen that appears while the game is running.
+  global FPSCLOCK, DISPLAYSURF, BASICFONT, BIGFONT
+  pygame.init()#This function is always called after inport PyGame before any other function is called
+  FPSCLOCK = pygame.time.Clock()#pygame.time.Clock()Create a PyGame.Time.Clock object
+  DISPLAYSURF = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT)) 
+  #Creates the width and height of the window in pixels. This function returns the PyGame.Surface object
+  BASICFONT = pygame.font.Font('freesansbold.ttf', 18)#Font
+  BIGFONT = pygame.font.Font('freesansbold.ttf', 100)#font
+  pygame.display.set_caption('Tetromino')#Set the window title
+  showTextScreen('Tetromino')#Sets the text to be displayed in the start screen
+ 
+  while True: #The game loop checks for any new events, such as mouse clicking or keyboard pressing, multiple times a second
+    pygame.mixer.music.load('tetrisc.mp3')#Load the music 
+    pygame.mixer.music.play(-1, 0.0)#play music
+    runGame()#Call runGame() to start the game, and when the game fails,runGame() returns main(),
+    pygame.mixer.music.stop()#然后main()Then main() stops the background music
+    showTextScreen('Game Over')#Display game over screen.When the player presses a key, the showTextScreen() function returns, and the program returns to the first line in main(), restarting the game
+ 
+def runGame():
+  board = getBlankBoard()#Create a blank gameboard data structure
+  lastMoveDownTime = time.time()#last Move Down Time
+  lastMoveSidewaysTime = time.time()#last Move Sideways Time
+  lastFallTime = time.time()#The last time the brick fell
+  movingDown = False #The down arrow key is not pressed
+  movingLeft = False #The left arrow key was not pressed
+  movingRight = False #The right arrow key was not pressed
+  score = 0
+  level, fallFreq = calculateLevelAndFallFreq(score)#Calculate the number of levels and the falling frequency. Since score=0, level=1 and fallFreq=0.25
+  fallingPiece = getNewPiece() 
+  nextPiece = getNewPiece() #NextPice is the brick that appears in the Next section of the screen, that is, the Next brick that will fall
+ 
+  while True:
+    if fallingPiece == None:#After the falling brick has landed, the fallingPiece variable is set to None
+      fallingPiece = nextPiece
+      nextPiece = getNewPiece()
+      lastFallTime = time.time() 
+      if not isValidPosition(board, fallingPiece):
+ 
+ 
+    for event in pygame.event.get(): #The event handling loop is responsible for rotating falling blocks and moving falling blocks
+      if event.type == KEYUP:#Respond to the KEYUP event when the key is pressed
+        if (event.key == K_LEFT):
+          movingLeft = False 
+        elif (event.key == K_RIGHT):
+          movingRight = False
+        elif (event.key == K_DOWN):
+          movingDown = False
+ 
+      elif event.type == KEYDOWN:
+        if (event.key == K_LEFT) and isValidPosition(board, fallingPiece, adjX=-1):
+        #The left arrow key is pressed and moves one position to the left
+          fallingPiece['x'] = fallingPiece['x'] -1 #left
+          movingLeft = True 
+          movingRight = False 
+          lastMoveSidewaysTime = time.time() 
+
+ 
+        elif (event.key == K_RIGHT ) and isValidPosition(board, fallingPiece, adjX=1): #同上
+          fallingPiece['x'] =fallingPiece['x'] + 1
+          movingRight = True
+          movingLeft = False
+          lastMoveSidewaysTime = time.time()
+ 
+ 
+        elif event.key == K_UP :
+          fallingPiece['rotation'] = (fallingPiece['rotation'] + 1) % len(PIECES[fallingPiece['shape']])
+          if not isValidPosition(board, fallingPiece):
+            fallingPiece['rotation'] = (fallingPiece['rotation'] - 1) % len(PIECES[fallingPiece['shape']])
+ 
+        # If the Down button is pressed, the player wants the block to fall faster than normal.
+        elif (event.key == K_DOWN ):
+          movingDown = True 
+          if isValidPosition(board, fallingPiece, adjY=1):
+            fallingPiece['y'] = fallingPiece['y'] +1
+          lastMoveDownTime = time.time() 
+ 
+    if (movingLeft or movingRight) and time.time() - lastMoveSidewaysTime > MOVESIDEWAYSFREQ:#MOVESIDEWAYSFREQ = 0.15 Press left or right for more than 0.15 seconds
+      if movingLeft and isValidPosition(board, fallingPiece, adjX=-1):
+        fallingPiece['x'] =fallingPiece['x'] - 1#move to the left one place
+      elif movingRight and isValidPosition(board, fallingPiece, adjX=1):
+        fallingPiece['x'] =fallingPiece['x'] + 1#move to the right one place
+      lastMoveSidewaysTime = time.time()
+ 
+    if movingDown and time.time() - lastMoveDownTime > MOVEDOWNFREQ and isValidPosition(board, fallingPiece, adjY=1):
+      fallingPiece['y'] = fallingPiece['y'] + 1
+      lastMoveDownTime = time.time()
+ 
+    #让砖块自然落下
+    if time.time() - lastFallTime > fallFreq:#The rate at which Fallfreq moves down
+      if not isValidPosition(board, fallingPiece, adjY=1):
+        addToBoard(board, fallingPiece) #Record the landing block in the gameboard data structure
+        score=score + removeCompleteLines(board)
+        level, fallFreq = calculateLevelAndFallFreq(score)
+        fallingPiece = None
+      else:
+        fallingPiece['y'] = fallingPiece['y'] +1
+        lastFallTime = time.time()
+ 
+    # drawing everything on the screen
+    DISPLAYSURF.fill(BGCOLOR)
+    drawBoard(board)
+    drawStatus(score, level)
+    drawNextPiece(nextPiece)
+    if fallingPiece != None:#The brick didn't fall to the bottom
+      drawPiece(fallingPiece)
+    pygame.display.update()
+    FPSCLOCK.tick(FPS)
+ 
+def makeTextObjs(text, font, color):
+  surf = font.render(text, True, color)
+  return surf, surf.get_rect()
+ 
+def checkForKeyPress():
+  for event in pygame.event.get([KEYDOWN, KEYUP]):
+    if event.type == KEYDOWN:
+      continue
+    return event.key
+  return None
+ 
+def calculateLevelAndFallFreq(score):
+#The getNewPiece() function generates a random brick to be placed at the top of the board (set 'Y '=-2).
+def getNewPiece():
+  shape = random.choice(list(PIECES.keys()))
+  
+  newPiece = {'shape': shape,
+        'rotation': random.randint(0, len(PIECES[shape]) - 1), 
+        'x': int(BOARDWIDTH / 2) - int(TEMPLATEWIDTH / 2), 
+        'y': -2, 
+        'color': random.randint(0, len(COLORS) - 1)#COLORS: A tuple of different COLORS
+        }
+  return newPiece
+ 
+
+def addToBoard(board, piece): 
+  for x in range(TEMPLATEWIDTH):
+    for y in range(TEMPLATEHEIGHT):
+      if PIECES[piece['shape']][piece['rotation']][y][x] != BLANK:
+        board[x + piece['x']][y + piece['y']] = piece['color'] 
+ 
+def getBlankBoard(): #Create a new gameboard data structure.
+  board = [] #Create a blank game board
+  for i in range(BOARDWIDTH):# range(10)=[0,9]  BOARDWIDTH=10  BLANK = '.' #Represents blank space
+    board.append([BLANK] * BOARDHEIGHT)
+ 
+ return board
+ 
+def isOnBoard(x, y):#The isOnboard () function checks whether the parameters x,y coordinates are present on the game board
+  return x >= 0 and x < BOARDWIDTH and y < BOARDHEIGHT#BOARDWIDTH=10，BOARDHEIGHT=20
+ 
+def isValidPosition(board, piece, adjX=0, adjY=0):
+  for x in range(TEMPLATEWIDTH): #TEMPLATEWIDTH=5 TEMPLATEWIDTH=5
+    for y in range(TEMPLATEHEIGHT):
+      isAboveBoard = y + piece['y'] + adjY < 0 #The template is not fully on the board yet
+      if isAboveBoard or PIECES[piece['shape']][piece['rotation']][y][x] == BLANK:
+        continue
+      if not isOnBoard(x + piece['x'] + adjX, y + piece['y'] + adjY):
+        return False
+      if board[x + piece['x'] + adjX][y + piece['y'] + adjY] != BLANK:#The valid blocks overlap the blocks on the game board
+        return False
+  return True
+ 
+def isCompleteLine(board, y):#Returns True if line y is full
+  for x in range(BOARDWIDTH):
+    if board[x][y] == BLANK:# If there is a space, it is not filled
+      return False
+  return True
+ 
+def removeCompleteLines(board):
+  numLinesRemoved = 0
+  y = BOARDHEIGHT - 1 
+  while y >= 0:
+    if isCompleteLine(board, y):
+      for pullDownY in range(y, 0, -1): #range(y, 0, -1)范围[y,1]
+        for x in range(BOARDWIDTH):
+          board[x][pullDownY] = board[x][pullDownY-1]
+      for x in range(BOARDWIDTH):
+        board[x][0]=BLANK
+      numLinesRemoved=numLinesRemoved+1
+    else:
+      y =y- 1 #Move to the next line
+  return numLinesRemoved
+ 
+def convertToPixelCoords(boxx, boxy):#Converts the coordinates of the blocks on the game board to pixel coordinates
+  return (XMARGIN + (boxx * BOXSIZE)), (TOPMARGIN + (boxy * BOXSIZE))#XMargin is the abscissa of the left vertex of the game board, and topMargin is the ordinate of the left vertex of the game board
+ 
+def drawBoard(board):#Draw board boundaries
+  pygame.draw.rect(DISPLAYSURF, BORDERCOLOR, (XMARGIN - 3, TOPMARGIN - 7, (BOARDWIDTH * BOXSIZE) + 8, (BOARDHEIGHT * BOXSIZE) + 8), 5)
+  pygame.draw.rect(DISPLAYSURF, BGCOLOR, (XMARGIN, TOPMARGIN, BOXSIZE * BOARDWIDTH, BOXSIZE * BOARDHEIGHT)) # Fill the background color of the gameboard
+  for x in range(BOARDWIDTH):
+    for y in range(BOARDHEIGHT):
+      drawBox(x, y, board[x][y])
+
+def drawBox(boxx, boxy, color, pixelx=None, pixely=None):#绘制一个有效方块
+  if color == BLANK: #如果这不是一个有效方块，这是5x5一个空白
+    return
+  if pixelx == None and pixely == None:
+    pixelx, pixely = convertToPixelCoords(boxx, boxy)#将游戏板上方块的坐标转化成像素坐标
+  pygame.draw.rect(DISPLAYSURF, COLORS[color], (pixelx + 1, pixely + 1, BOXSIZE - 1, BOXSIZE - 1))#留出1像素的空白，这样才能在砖块中看到组成砖块
+  #的有效方块，不然砖块看起来就只有一片颜色。
+ 
+#绘制一个砖块
+def drawPiece(piece, pixelx=None, pixely=None):#pixelx, pixely为5x5砖块数据结构左上角在游戏板上的的坐标
+  shapeToDraw = PIECES[piece['shape']][piece['rotation']]#PIECES[piece['shape']][piece['rotation']]为一个图形的一种旋转方式
+  if pixelx == None and pixely == None: 
+  #然而，'Next'砖块并不会绘制到游戏板上。在这种情况下，我们忽略砖块数据结构中包含的位置信息，而是让drawPiece()函数的调用者
+#为pixelx何pixely参数传递实参，以指定应该将砖块确切地绘制到窗口上的什么位置。
+    pixelx, pixely = convertToPixelCoords(piece['x'], piece['y'])#将砖块坐标转换为像素坐标。
+  for x in range(TEMPLATEWIDTH): #遍历5x5砖块数据结构
+    for y in range(TEMPLATEHEIGHT):
+      if shapeToDraw[y][x] != BLANK:
+        drawBox(None, None, piece['color'], pixelx+(x * BOXSIZE), pixely + (y * BOXSIZE))
+        #还记得吗？有效方块左上角在游戏板中的坐标=有效方块左上角在方块板数据结构中的坐标+方块数据额结构左上角在游戏板中的坐标，这里这不过换成了像素格式
+ 
+def drawNextPiece(piece):
+  nextSurf = BASICFONT.render('Next:', True, TEXTCOLOR)
+  nextRect = nextSurf.get_rect()
+  nextRect.topleft = (WINDOWWIDTH - 120, 80)
+  DISPLAYSURF.blit(nextSurf, nextRect)
+  drawPiece(piece, pixelx=WINDOWWIDTH-120, pixely=100)
+ 
+def drawStatus(score, level):
+  scoreSurf = BASICFONT.render('Score: %s' % score, True, TEXTCOLOR)
+  scoreRect = scoreSurf.get_rect()
+  scoreRect.topleft = (WINDOWWIDTH - 150, 20)
+  DISPLAYSURF.blit(scoreSurf, scoreRect)
+  levelSurf = BASICFONT.render('Level: %s' % level, True, TEXTCOLOR)
+  levelRect = levelSurf.get_rect()
+  levelRect.topleft = (WINDOWWIDTH - 150, 50)
+  DISPLAYSURF.blit(levelSurf, levelRect)
+ 
+def showTextScreen(text):
+  titleSurf, titleRect = makeTextObjs(text, BIGFONT, TEXTCOLOR)
+  titleRect.center = (int(WINDOWWIDTH / 2) - 3, int(WINDOWHEIGHT / 2) - 3)
+  DISPLAYSURF.blit(titleSurf, titleRect)
+  pressKeySurf, pressKeyRect = makeTextObjs('Press a key to play.', BASICFONT, TEXTCOLOR)
+  pressKeyRect.center = (int(WINDOWWIDTH / 2), int(WINDOWHEIGHT / 2) + 100)
+  DISPLAYSURF.blit(pressKeySurf, pressKeyRect)
+  while checkForKeyPress() == None:
+    pygame.display.update()
+    FPSCLOCK.tick()
+ 
+if __name__ == '__main__':
+  main()
