@@ -227,7 +227,7 @@ def runGame():
       fallingPiece['y'] = fallingPiece['y'] + 1
       lastMoveDownTime = time.time()
  
-    #让砖块自然落下
+    
     if time.time() - lastFallTime > fallFreq:#The rate at which Fallfreq moves down
       if not isValidPosition(board, fallingPiece, adjY=1):
         addToBoard(board, fallingPiece) #Record the landing block in the gameboard data structure
@@ -312,7 +312,7 @@ def removeCompleteLines(board):
   y = BOARDHEIGHT - 1 
   while y >= 0:
     if isCompleteLine(board, y):
-      for pullDownY in range(y, 0, -1): #range(y, 0, -1)范围[y,1]
+      for pullDownY in range(y, 0, -1): 
         for x in range(BOARDWIDTH):
           board[x][pullDownY] = board[x][pullDownY-1]
       for x in range(BOARDWIDTH):
@@ -332,26 +332,24 @@ def drawBoard(board):#Draw board boundaries
     for y in range(BOARDHEIGHT):
       drawBox(x, y, board[x][y])
 
-def drawBox(boxx, boxy, color, pixelx=None, pixely=None):#绘制一个有效方块
-  if color == BLANK: #如果这不是一个有效方块，这是5x5一个空白
+def drawBox(boxx, boxy, color, pixelx=None, pixely=None):#Draws a valid square
+  if color == BLANK: #If this is not a valid square, this is 5x5 blank
     return
   if pixelx == None and pixely == None:
-    pixelx, pixely = convertToPixelCoords(boxx, boxy)#将游戏板上方块的坐标转化成像素坐标
-  pygame.draw.rect(DISPLAYSURF, COLORS[color], (pixelx + 1, pixely + 1, BOXSIZE - 1, BOXSIZE - 1))#留出1像素的空白，这样才能在砖块中看到组成砖块
-  #的有效方块，不然砖块看起来就只有一片颜色。
+    pixelx, pixely = convertToPixelCoords(boxx, boxy)#Converts the coordinates of the blocks on the game board to pixel coordinates
+  pygame.draw.rect(DISPLAYSURF, COLORS[color], (pixelx + 1, pixely + 1, BOXSIZE - 1, BOXSIZE - 1))
+  
  
-#绘制一个砖块
-def drawPiece(piece, pixelx=None, pixely=None):#pixelx, pixely为5x5砖块数据结构左上角在游戏板上的的坐标
-  shapeToDraw = PIECES[piece['shape']][piece['rotation']]#PIECES[piece['shape']][piece['rotation']]为一个图形的一种旋转方式
+
+def drawPiece(piece, pixelx=None, pixely=None):
+  shapeToDraw = PIECES[piece['shape']][piece['rotation']]
   if pixelx == None and pixely == None: 
-  #然而，'Next'砖块并不会绘制到游戏板上。在这种情况下，我们忽略砖块数据结构中包含的位置信息，而是让drawPiece()函数的调用者
-#为pixelx何pixely参数传递实参，以指定应该将砖块确切地绘制到窗口上的什么位置。
-    pixelx, pixely = convertToPixelCoords(piece['x'], piece['y'])#将砖块坐标转换为像素坐标。
-  for x in range(TEMPLATEWIDTH): #遍历5x5砖块数据结构
+    pixelx, pixely = convertToPixelCoords(piece['x'], piece['y'])#Converts brick coordinates to pixel coordinates.
+  for x in range(TEMPLATEWIDTH): 
     for y in range(TEMPLATEHEIGHT):
       if shapeToDraw[y][x] != BLANK:
         drawBox(None, None, piece['color'], pixelx+(x * BOXSIZE), pixely + (y * BOXSIZE))
-        #还记得吗？有效方块左上角在游戏板中的坐标=有效方块左上角在方块板数据结构中的坐标+方块数据额结构左上角在游戏板中的坐标，这里这不过换成了像素格式
+
  
 def drawNextPiece(piece):
   nextSurf = BASICFONT.render('Next:', True, TEXTCOLOR)
